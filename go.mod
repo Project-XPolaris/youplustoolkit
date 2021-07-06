@@ -1,4 +1,4 @@
-module github.com/projectxpolaris/youplustoolkit
+module github.com/project-xpolaris/youplustoolkit
 
 go 1.16
 
