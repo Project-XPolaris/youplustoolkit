@@ -1,4 +1,4 @@
-package youplustoolkit
+package youplus
 
 import "fmt"
 import "github.com/go-resty/resty/v2"
