@@ -23,16 +23,16 @@ type Scope struct {
 }
 type Fields map[string]interface{}
 
-func (c *LogClient) Init(address string, application string, instance string) error {
+func (c *LogClient) Init(address string, application string, instance string) {
 	c.client = NewYouLogClient(address)
 	c.Application = application
 	c.Instance = instance
 	c.Logger = logrus.New()
+	return
+}
+func (c *LogClient) Connect() error {
 	err := c.client.Connect()
-	if err != nil {
-		return err
-	}
-	return nil
+	return err
 }
 
 func (c *LogClient) Info(message string) error {
@@ -73,15 +73,17 @@ func (c *Scope) write(level int64, message string) error {
 	if err != nil {
 		return err
 	}
-	_, err = c.logClient.client.Client.WriteLog(context.Background(), &LogData{
-		Application: c.logClient.Application,
-		Instance:    c.logClient.Instance,
-		Scope:       c.Name,
-		Extra:       string(raw),
-		Message:     message,
-		Level:       level,
-		Time:        time.Now().Unix() * 1000,
-	})
+	if c.logClient.client.Client != nil {
+		_, err = c.logClient.client.Client.WriteLog(context.Background(), &LogData{
+			Application: c.logClient.Application,
+			Instance:    c.logClient.Instance,
+			Scope:       c.Name,
+			Extra:       string(raw),
+			Message:     message,
+			Level:       level,
+			Time:        time.Now().Unix() * 1000,
+		})
+	}
 	return err
 }
 func (c *Scope) getFieldsMap() map[string]interface{} {
