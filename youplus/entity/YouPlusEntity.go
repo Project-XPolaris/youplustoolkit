@@ -16,6 +16,10 @@ const (
 	ErrorCodeEntityNotFound = 6001
 )
 
+type EntityExport struct {
+	Urls  []string    `json:"urls"`
+	Extra interface{} `json:"extra"`
+}
 type EntityClient struct {
 	Name                     string
 	Version                  int64
@@ -66,6 +70,7 @@ func (e *EntityClient) Unregister() error {
 }
 func (e *EntityClient) UpdateExport(data interface{}) error {
 	raw, err := json.Marshal(&data)
+	e.Export = data
 	if err != nil {
 		return err
 	}
@@ -99,7 +104,7 @@ func (e *EntityClient) StartHeartbeat(ctx context.Context) error {
 				})
 				if err != nil {
 					logrus.Info(err)
-					return
+					continue
 				}
 
 				if !*reply.Success {
@@ -107,6 +112,7 @@ func (e *EntityClient) StartHeartbeat(ctx context.Context) error {
 					if *reply.Code == ErrorCodeEntityNotFound {
 						logrus.Info("try to register entity again")
 						e.Register()
+						e.UpdateExport(e.Export)
 					}
 
 				}
