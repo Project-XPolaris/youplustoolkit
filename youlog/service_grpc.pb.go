@@ -97,5 +97,5 @@ var LogService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "youplus_service.proto",
+	Metadata: "service.proto",
 }
