@@ -1,0 +1,78 @@
+syntax = "proto2";
+package yousmb;
+option go_package = "/rpc";
+
+service YouSMBService {
+  rpc GetConfig(Empty) returns (ConfigReply) {}
+  rpc AddFolderConfig(AddConfigMessage) returns (BaseReply){}
+  rpc UpdateFolderConfig(AddConfigMessage) returns (BaseReply){}
+  rpc RemoveFolderConfig(RemoveConfigMessage) returns (BaseReply){}
+  rpc AddUser(AddUserMessage) returns (BaseReply) {}
+  rpc RemoveUser(RemoveUserMessage) returns (BaseReply) {}
+  rpc GetSMBStatus(Empty) returns (SMBStatusReply) {}
+  rpc GetInfo(Empty) returns (ServiceInfoReply) {}
+}
+message Empty {
+
+}
+message BaseReply {
+  required bool success = 1;
+  optional string reason = 2;
+}
+message Section {
+  required string name = 1;
+  map<string, string> fields = 2;
+}
+message ConfigReply{
+  repeated Section sections = 1;
+}
+
+message AddConfigMessage {
+  required string Name = 1;
+  map<string, string> Properties = 2;
+}
+message RemoveConfigMessage {
+  required string Name = 1;
+}
+message AddUserMessage {
+  required string Username = 1;
+  required string Password = 2;
+}
+
+message GetUserListReply {
+  required bool Success = 1;
+  repeated User Users = 2;
+}
+message User {
+  required string Username = 1;
+}
+
+message RemoveUserMessage {
+  required string Username = 1;
+}
+
+message StatusProcess {
+  required string PID = 1;
+  required string Username = 2;
+  required string Group = 3;
+  required string Machine = 4;
+  map<string,string> raw = 5;
+}
+message StatusShares {
+  required string Service = 1;
+  required string PID = 2;
+  required string Machine = 3;
+  required string ConnectAt = 4;
+  map<string,string> raw = 5;
+
+}
+message SMBStatusReply {
+  required bool Success = 1;
+  repeated StatusProcess Process = 2;
+  repeated StatusShares Shares = 3;
+}
+message ServiceInfoReply {
+  required bool Success = 1;
+  required string Name = 2;
+  required string Status = 3;
+}
