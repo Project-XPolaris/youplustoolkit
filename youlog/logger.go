@@ -30,25 +30,49 @@ func (c *LogClient) Init(address string, application string, instance string) {
 	c.Logger = logrus.New()
 	return
 }
-func (c *LogClient) Connect() error {
-	err := c.client.Connect()
+func (c *LogClient) Connect(context context.Context) error {
+	err := c.client.Connect(context)
 	return err
 }
+func (c *LogClient) StartDaemon(maxRetry int) {
+	c.client.StartDaemon(maxRetry)
+}
 
-func (c *LogClient) Info(message string) error {
-	return c.NewScope(DefaultScope).write(LEVEL_INFO, message)
+func (c *LogClient) Info(message string) {
+	err := c.NewScope(DefaultScope).write(LEVEL_INFO, message)
+	if err != nil {
+		c.Logger.Error(err)
+	}
 }
-func (c *LogClient) Debug(message string) error {
-	return c.NewScope(DefaultScope).write(LEVEL_DEBUG, message)
+func (c *LogClient) Debug(message string) {
+	err := c.NewScope(DefaultScope).write(LEVEL_DEBUG, message)
+	if err != nil {
+		c.Logger.Error(err)
+	}
 }
-func (c *LogClient) Warn(message string) error {
-	return c.NewScope(DefaultScope).write(LEVEL_WARN, message)
+func (c *LogClient) Warn(message string) {
+	err := c.NewScope(DefaultScope).write(LEVEL_WARN, message)
+	if err != nil {
+		c.Logger.Error(err)
+	}
 }
-func (c *LogClient) Error(message string) error {
-	return c.NewScope(DefaultScope).write(LEVEL_ERROR, message)
+func (c *LogClient) Error(message string) {
+	err := c.NewScope(DefaultScope).write(LEVEL_ERROR, message)
+	if err != nil {
+		c.Logger.Error(err)
+	}
 }
-func (c *LogClient) Fatal(message string) error {
-	return c.NewScope(DefaultScope).write(LEVEL_FATAL, message)
+func (c *LogClient) Err(err error) {
+	writeErr := c.NewScope(DefaultScope).write(LEVEL_ERROR, err.Error())
+	if err != nil {
+		c.Logger.Error(writeErr)
+	}
+}
+func (c *LogClient) Fatal(message string) {
+	err := c.NewScope(DefaultScope).write(LEVEL_FATAL, message)
+	if err != nil {
+		c.Logger.Error(err)
+	}
 }
 func (c *LogClient) WithFields(field Fields) *Scope {
 	return c.NewScope(DefaultScope).WithFields(field)
@@ -89,37 +113,48 @@ func (c *Scope) write(level int64, message string) error {
 func (c *Scope) getFieldsMap() map[string]interface{} {
 	return c.Fields
 }
-func (c *Scope) Info(message string) error {
+func (c *Scope) Info(message string) {
 	c.logClient.Logger.WithFields(map[string]interface{}{
 		"scope": c.Name,
 	}).WithFields(c.getFieldsMap()).Info(message)
-	return c.write(LEVEL_INFO, message)
+	err := c.write(LEVEL_INFO, message)
+	if err != nil {
+		c.logClient.Logger.Error(err)
+	}
 }
-func (c *Scope) Debug(message string) error {
+func (c *Scope) Debug(message string) {
 	c.logClient.Logger.WithFields(map[string]interface{}{
 		"scope": c.Name,
 	}).WithFields(c.getFieldsMap()).Debug(message)
-	return c.write(LEVEL_DEBUG, message)
+	err := c.write(LEVEL_DEBUG, message)
+	if err != nil {
+		c.logClient.Logger.Error(err)
+	}
 }
-func (c *Scope) Warn(message string) error {
+func (c *Scope) Warn(message string) {
 	c.logClient.Logger.WithFields(map[string]interface{}{
 		"scope": c.Name,
 	}).WithFields(c.getFieldsMap()).Warn(message)
-	return c.write(LEVEL_WARN, message)
+	err := c.write(LEVEL_WARN, message)
+	if err != nil {
+		c.logClient.Logger.Error(err)
+	}
 }
-func (c *Scope) Error(message string) error {
+func (c *Scope) Error(message string) {
 	c.logClient.Logger.WithFields(map[string]interface{}{
 		"scope": c.Name,
 	}).WithFields(c.getFieldsMap()).Error(message)
-	return c.write(LEVEL_ERROR, message)
-}
-func (c *Scope) Fatal(message string) error {
-	err := c.write(LEVEL_FATAL, message)
+	err := c.write(LEVEL_ERROR, message)
 	if err != nil {
-		return err
+		c.logClient.Logger.Error(err)
 	}
+}
+func (c *Scope) Fatal(message string) {
 	c.logClient.Logger.WithFields(map[string]interface{}{
 		"scope": c.Name,
 	}).WithFields(c.getFieldsMap()).Fatal(message)
-	return nil
+	err := c.write(LEVEL_FATAL, message)
+	if err != nil {
+		c.logClient.Logger.Error(err)
+	}
 }
