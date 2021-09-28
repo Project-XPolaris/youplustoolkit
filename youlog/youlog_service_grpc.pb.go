@@ -31,7 +31,7 @@ func NewLogServiceClient(cc grpc.ClientConnInterface) LogServiceClient {
 
 func (c *logServiceClient) WriteLog(ctx context.Context, in *LogData, opts ...grpc.CallOption) (*WriteReply, error) {
 	out := new(WriteReply)
-	err := c.cc.Invoke(ctx, "/LogService/WriteLog", in, out, opts...)
+	err := c.cc.Invoke(ctx, "/youlog.LogService/WriteLog", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -76,7 +76,7 @@ func _LogService_WriteLog_Handler(srv interface{}, ctx context.Context, dec func
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/LogService/WriteLog",
+		FullMethod: "/youlog.LogService/WriteLog",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(LogServiceServer).WriteLog(ctx, req.(*LogData))
@@ -88,7 +88,7 @@ func _LogService_WriteLog_Handler(srv interface{}, ctx context.Context, dec func
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
 var LogService_ServiceDesc = grpc.ServiceDesc{
-	ServiceName: "LogService",
+	ServiceName: "youlog.LogService",
 	HandlerType: (*LogServiceServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
@@ -97,5 +97,5 @@ var LogService_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "service.proto",
+	Metadata: "youlog_service.proto",
 }

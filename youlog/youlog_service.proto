@@ -1,6 +1,6 @@
 syntax = "proto3";
 option go_package = "github.com/project-xpolaris/youplustoolkit/youlog";
-
+package youlog;
 service LogService {
   rpc WriteLog (LogData) returns (WriteReply) {}
 }
