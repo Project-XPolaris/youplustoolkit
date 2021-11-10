@@ -85,12 +85,19 @@ func (c *LogClient) NewScope(name string) *Scope {
 		Fields:    Fields{},
 	}
 }
-
-func (c *Scope) WithFields(field Fields) *Scope {
-	for key, value := range field {
-		c.Fields[key] = value
-	}
+func (c *Scope) SetFields(fields Fields) *Scope {
+	c.Fields = fields
 	return c
+}
+func (c *Scope) WithFields(fields Fields) *Scope {
+	newScope := c.logClient.NewScope(c.Name)
+	for key, value := range fields {
+		newScope.Fields[key] = value
+	}
+	for key, value := range c.Fields {
+		newScope.Fields[key] = value
+	}
+	return newScope
 }
 func (c *Scope) write(level int64, message string) error {
 	raw, err := json.Marshal(c.Fields)
