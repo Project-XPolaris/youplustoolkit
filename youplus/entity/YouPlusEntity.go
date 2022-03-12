@@ -43,7 +43,11 @@ func NewEntityClient(name string, version int64, export interface{}, client *rpc
 }
 
 func (e *EntityClient) Register() error {
-	result, err := e.Client.Client.RegisterEntry(context.Background(), &rpc.RegisterEntryRequest{
+	client, err := e.Client.GetClient()
+	if err != nil {
+		return err
+	}
+	result, err := client.RegisterEntry(context.Background(), &rpc.RegisterEntryRequest{
 		Name:     &e.Name,
 		Version:  &e.Version,
 		Instance: &e.Instance,
@@ -57,7 +61,11 @@ func (e *EntityClient) Register() error {
 	return nil
 }
 func (e *EntityClient) Unregister() error {
-	result, err := e.Client.Client.UnregisterEntry(context.Background(), &rpc.UnregisterEntryRequest{
+	client, err := e.Client.GetClient()
+	if err != nil {
+		return err
+	}
+	result, err := client.UnregisterEntry(context.Background(), &rpc.UnregisterEntryRequest{
 		Instance: &e.Instance,
 	})
 	if err != nil {
@@ -69,13 +77,17 @@ func (e *EntityClient) Unregister() error {
 	return nil
 }
 func (e *EntityClient) UpdateExport(data interface{}) error {
+	client, err := e.Client.GetClient()
+	if err != nil {
+		return err
+	}
 	raw, err := json.Marshal(&data)
 	e.Export = data
 	if err != nil {
 		return err
 	}
 	rawString := string(raw)
-	result, err := e.Client.Client.UpdateEntryExport(context.Background(), &rpc.UpdateEntryExportRequest{
+	result, err := client.UpdateEntryExport(context.Background(), &rpc.UpdateEntryExportRequest{
 		Instance: &e.Instance,
 		Data:     &rawString,
 	})
@@ -96,8 +108,13 @@ func (e *EntityClient) StartHeartbeat(ctx context.Context) error {
 		for {
 			select {
 			case <-time.After(time.Duration(e.HeartbeatRate) * time.Millisecond):
+				client, err := e.Client.GetClient()
+				if err != nil {
+					logrus.Info(err)
+					continue
+				}
 				state := "online"
-				reply, err := e.Client.Client.EntryHeartbeat(ctx, &rpc.HeartbeatRequest{
+				reply, err := client.EntryHeartbeat(ctx, &rpc.HeartbeatRequest{
 					Name:     &e.Name,
 					Instance: &e.Instance,
 					State:    &state,

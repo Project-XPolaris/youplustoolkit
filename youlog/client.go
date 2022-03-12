@@ -2,12 +2,8 @@ package youlog
 
 import (
 	"context"
-	"fmt"
-	"github.com/project-xpolaris/youplustoolkit/util"
-	"github.com/sirupsen/logrus"
+	grpcpool "github.com/processout/grpc-go-pool"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/connectivity"
-	"time"
 )
 
 const (
@@ -19,53 +15,30 @@ const (
 )
 
 type YouLogClient struct {
-	util.BaseRPCClient
-	Address  string
-	Client   LogServiceClient
-	Conn     *grpc.ClientConn
-	tryCount int
+	Address string
+	pool    *grpcpool.Pool
 }
 
 func NewYouLogClient(address string) *YouLogClient {
 	return &YouLogClient{Address: address}
 }
 
-func (c *YouLogClient) Connect(ctx context.Context) error {
-	conn, err := grpc.DialContext(ctx,
-		c.Address, grpc.WithInsecure(),
-		grpc.WithBlock(),
-	)
+func (c *YouLogClient) Init() error {
+	var factory grpcpool.Factory = func() (*grpc.ClientConn, error) {
+		return grpc.DialContext(context.Background(), c.Address, grpc.WithInsecure())
+	}
+	pool, err := grpcpool.New(factory, 1, 3, 0)
 	if err != nil {
 		return err
 	}
-	c.Client = NewLogServiceClient(conn)
+	c.pool = pool
 	return nil
 }
-func (c *YouLogClient) StartDaemon(maxRetry int) {
-	c.BaseRPCClient = util.BaseRPCClient{
-		MaxRetry:  maxRetry,
-		KeepAlive: true,
+func (c *YouLogClient) GetClient() (LogServiceClient, error) {
+	conn, err := c.pool.Get(context.Background())
+	if err != nil {
+		return nil, err
 	}
-	c.daemon()
-}
-func (c *YouLogClient) daemon() {
-	go func() {
-		for {
-			if c.Conn != nil && c.Conn.GetState() == connectivity.TransientFailure {
-				if c.tryCount == c.MaxRetry {
-					return
-				}
-				logrus.Info(fmt.Sprintf("youplus rpc connect lost,try to connect [%d of %d]", c.tryCount, c.MaxRetry))
-				connContext, _ := context.WithTimeout(context.Background(), 3*time.Second)
-				err := c.Connect(connContext)
-				if err != nil {
-					logrus.Error(err)
-					c.tryCount += 1
-					continue
-				}
-				c.tryCount = 0
-			}
-		}
-
-	}()
+	client := NewLogServiceClient(conn)
+	return client, nil
 }

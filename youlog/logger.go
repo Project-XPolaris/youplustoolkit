@@ -10,6 +10,7 @@ import (
 var DefaultScope = "Global"
 
 type LogClient struct {
+	Remote      bool
 	client      *YouLogClient
 	Logger      *logrus.Logger
 	Application string
@@ -31,11 +32,8 @@ func (c *LogClient) Init(address string, application string, instance string) {
 	return
 }
 func (c *LogClient) Connect(context context.Context) error {
-	err := c.client.Connect(context)
+	err := c.client.Init()
 	return err
-}
-func (c *LogClient) StartDaemon(maxRetry int) {
-	c.client.StartDaemon(maxRetry)
 }
 
 func (c *LogClient) Info(message string) {
@@ -104,8 +102,13 @@ func (c *Scope) write(level int64, message string) error {
 	if err != nil {
 		return err
 	}
-	if c.logClient.client.Client != nil {
-		_, err = c.logClient.client.Client.WriteLog(context.Background(), &LogData{
+
+	if c.logClient.client != nil && c.logClient.Remote {
+		client, err := c.logClient.client.GetClient()
+		if err != nil {
+			return err
+		}
+		_, err = client.WriteLog(context.Background(), &LogData{
 			Application: c.logClient.Application,
 			Instance:    c.logClient.Instance,
 			Scope:       c.Name,
