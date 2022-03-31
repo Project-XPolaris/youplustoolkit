@@ -28,11 +28,11 @@ func (c *YouSMBRPCClient) Init() error {
 	c.pool = pool
 	return nil
 }
-func (c *YouSMBRPCClient) GetClient() (YouSMBServiceClient, error) {
+func (c *YouSMBRPCClient) GetClient() (YouSMBServiceClient, *grpcpool.ClientConn, error) {
 	conn, err := c.pool.Get(context.Background())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	client := NewYouSMBServiceClient(conn)
-	return client, nil
+	return client, conn, nil
 }

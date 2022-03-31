@@ -28,11 +28,11 @@ func (c *YouPlusRPCClient) Init() error {
 	c.pool = pool
 	return nil
 }
-func (c *YouPlusRPCClient) GetClient() (YouPlusServiceClient, error) {
+func (c *YouPlusRPCClient) GetClient() (YouPlusServiceClient, *grpcpool.ClientConn, error) {
 	conn, err := c.pool.Get(context.Background())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	client := NewYouPlusServiceClient(conn)
-	return client, nil
+	return client, conn, nil
 }

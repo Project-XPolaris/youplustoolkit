@@ -24,10 +24,11 @@ func (e *YouLogEngine) Init() error {
 }
 
 func (e *YouLogEngine) WriteLog(context context.Context, scope *Scope, message string, level int64) error {
-	client, err := e.client.GetClient()
+	client, conn, err := e.client.GetClient()
 	if err != nil {
 		return err
 	}
+	defer conn.Close()
 	extra, err := json.Marshal(scope.Fields)
 	if err != nil {
 		return err
@@ -49,6 +50,7 @@ func (e *YouLogEngine) WriteLog(context context.Context, scope *Scope, message s
 	if reply.Success == false {
 		return errors.New("service error")
 	}
+
 	return nil
 }
 
@@ -72,11 +74,11 @@ func (c *YouLogClient) Init() error {
 	c.pool = pool
 	return nil
 }
-func (c *YouLogClient) GetClient() (logservice.LogServiceClient, error) {
+func (c *YouLogClient) GetClient() (logservice.LogServiceClient, *grpcpool.ClientConn, error) {
 	conn, err := c.pool.Get(context.Background())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	client := logservice.NewLogServiceClient(conn)
-	return client, nil
+	return client, conn, nil
 }

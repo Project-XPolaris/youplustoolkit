@@ -43,10 +43,11 @@ func NewEntityClient(name string, version int64, export interface{}, client *rpc
 }
 
 func (e *EntityClient) Register() error {
-	client, err := e.Client.GetClient()
+	client, conn, err := e.Client.GetClient()
 	if err != nil {
 		return err
 	}
+	defer conn.Close()
 	result, err := client.RegisterEntry(context.Background(), &rpc.RegisterEntryRequest{
 		Name:     &e.Name,
 		Version:  &e.Version,
@@ -61,10 +62,11 @@ func (e *EntityClient) Register() error {
 	return nil
 }
 func (e *EntityClient) Unregister() error {
-	client, err := e.Client.GetClient()
+	client, conn, err := e.Client.GetClient()
 	if err != nil {
 		return err
 	}
+	defer conn.Close()
 	result, err := client.UnregisterEntry(context.Background(), &rpc.UnregisterEntryRequest{
 		Instance: &e.Instance,
 	})
@@ -77,10 +79,11 @@ func (e *EntityClient) Unregister() error {
 	return nil
 }
 func (e *EntityClient) UpdateExport(data interface{}) error {
-	client, err := e.Client.GetClient()
+	client, conn, err := e.Client.GetClient()
 	if err != nil {
 		return err
 	}
+	defer conn.Close()
 	raw, err := json.Marshal(&data)
 	e.Export = data
 	if err != nil {
@@ -108,9 +111,11 @@ func (e *EntityClient) StartHeartbeat(ctx context.Context) error {
 		for {
 			select {
 			case <-time.After(time.Duration(e.HeartbeatRate) * time.Millisecond):
-				client, err := e.Client.GetClient()
+				client, conn, err := e.Client.GetClient()
+
 				if err != nil {
 					logrus.Info(err)
+					conn.Close()
 					continue
 				}
 				state := "online"
@@ -121,9 +126,9 @@ func (e *EntityClient) StartHeartbeat(ctx context.Context) error {
 				})
 				if err != nil {
 					logrus.Info(err)
+					conn.Close()
 					continue
 				}
-
 				if !*reply.Success {
 					logrus.Info(*reply.Reason)
 					if *reply.Code == ErrorCodeEntityNotFound {
@@ -131,8 +136,8 @@ func (e *EntityClient) StartHeartbeat(ctx context.Context) error {
 						e.Register()
 						e.UpdateExport(e.Export)
 					}
-
 				}
+				conn.Close()
 			case <-e.StopHeartbeatContext.Done():
 				return
 			}
