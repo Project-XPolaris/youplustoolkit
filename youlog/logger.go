@@ -2,83 +2,101 @@ package youlog
 
 import (
 	"context"
-	"encoding/json"
+	"fmt"
 	"github.com/sirupsen/logrus"
-	"time"
 )
 
 var DefaultScope = "Global"
 
+const (
+	LEVEL_DEBUG = 1
+	LEVEL_INFO  = 2
+	LEVEL_WARN  = 3
+	LEVEL_ERROR = 4
+	LEVEL_FATAL = 5
+)
+
 type LogClient struct {
-	Remote      bool
-	client      *YouLogClient
 	Logger      *logrus.Logger
 	Application string
 	Instance    string
+	Engines     []LogEngine
 }
 
 type Scope struct {
-	logClient *LogClient
+	LogClient *LogClient
 	Name      string
 	Fields    Fields
 }
 type Fields map[string]interface{}
 
-func (c *LogClient) Init(address string, application string, instance string) {
-	c.client = NewYouLogClient(address)
+func (c *LogClient) Init(application string, instance string) {
 	c.Application = application
 	c.Instance = instance
+	c.Engines = make([]LogEngine, 0)
 	c.Logger = logrus.New()
+
 	return
 }
-func (c *LogClient) Connect(context context.Context) error {
-	err := c.client.Init()
-	return err
+func (c *LogClient) InitEngines(context context.Context) error {
+	for _, engine := range c.Engines {
+		err := engine.Init()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
-func (c *LogClient) Info(message string) {
-	err := c.NewScope(DefaultScope).write(LEVEL_INFO, message)
-	if err != nil {
-		c.Logger.Error(err)
+func (c *LogClient) AddEngine(engineConfig interface{}) error {
+	switch engineConfig.(type) {
+	case *LogrusEngineConfig:
+		c.Engines = append(c.Engines, &LogrusEngine{
+			Config: engineConfig.(*LogrusEngineConfig),
+		})
+		return nil
+	case *YouLogServiceEngineConfig:
+		c.Engines = append(c.Engines, &YouLogEngine{
+			Config: engineConfig.(*YouLogServiceEngineConfig),
+		})
+		return nil
+	case *FluentdEngineConfig:
+		c.Engines = append(c.Engines, &FluentdEngine{
+			Config: engineConfig.(*FluentdEngineConfig),
+		})
+		return nil
 	}
+	return fmt.Errorf("unknown engine type")
 }
-func (c *LogClient) Debug(message string) {
-	err := c.NewScope(DefaultScope).write(LEVEL_DEBUG, message)
-	if err != nil {
-		c.Logger.Error(err)
-	}
+func (c *LogClient) Info(message ...interface{}) {
+	c.write(c.NewScope(DefaultScope), LEVEL_INFO, message...)
 }
-func (c *LogClient) Warn(message string) {
-	err := c.NewScope(DefaultScope).write(LEVEL_WARN, message)
-	if err != nil {
-		c.Logger.Error(err)
-	}
+func (c *LogClient) Debug(message ...interface{}) {
+	c.write(c.NewScope(DefaultScope), LEVEL_DEBUG, message...)
 }
-func (c *LogClient) Error(message string) {
-	err := c.NewScope(DefaultScope).write(LEVEL_ERROR, message)
-	if err != nil {
-		c.Logger.Error(err)
-	}
+func (c *LogClient) Warn(message ...interface{}) {
+	c.write(c.NewScope(DefaultScope), LEVEL_WARN, message...)
 }
-func (c *LogClient) Err(err error) {
-	writeErr := c.NewScope(DefaultScope).write(LEVEL_ERROR, err.Error())
-	if err != nil {
-		c.Logger.Error(writeErr)
-	}
+func (c *LogClient) Error(message ...interface{}) {
+	c.write(c.NewScope(DefaultScope), LEVEL_ERROR, message...)
 }
-func (c *LogClient) Fatal(message string) {
-	err := c.NewScope(DefaultScope).write(LEVEL_FATAL, message)
-	if err != nil {
-		c.Logger.Error(err)
-	}
+func (c *LogClient) Fatal(message ...interface{}) {
+	c.write(c.NewScope(DefaultScope), LEVEL_FATAL, message...)
 }
 func (c *LogClient) WithFields(field Fields) *Scope {
 	return c.NewScope(DefaultScope).WithFields(field)
 }
-
+func (c *LogClient) write(scope *Scope, level int64, message ...interface{}) {
+	for _, engine := range c.Engines {
+		err := engine.WriteLog(context.Background(), scope, combineStrings(message...), level)
+		if err != nil {
+			c.Logger.Error(err)
+		}
+	}
+}
 func (c *LogClient) NewScope(name string) *Scope {
 	return &Scope{
-		logClient: c,
+		LogClient: c,
 		Name:      name,
 		Fields:    Fields{},
 	}
@@ -88,7 +106,7 @@ func (c *Scope) SetFields(fields Fields) *Scope {
 	return c
 }
 func (c *Scope) WithFields(fields Fields) *Scope {
-	newScope := c.logClient.NewScope(c.Name)
+	newScope := c.LogClient.NewScope(c.Name)
 	for key, value := range fields {
 		newScope.Fields[key] = value
 	}
@@ -98,73 +116,32 @@ func (c *Scope) WithFields(fields Fields) *Scope {
 	return newScope
 }
 func (c *Scope) write(level int64, message string) error {
-	raw, err := json.Marshal(c.Fields)
-	if err != nil {
-		return err
-	}
-
-	if c.logClient.client != nil && c.logClient.Remote {
-		client, err := c.logClient.client.GetClient()
-		if err != nil {
-			return err
-		}
-		_, err = client.WriteLog(context.Background(), &LogData{
-			Application: c.logClient.Application,
-			Instance:    c.logClient.Instance,
-			Scope:       c.Name,
-			Extra:       string(raw),
-			Message:     message,
-			Level:       level,
-			Time:        time.Now().Unix() * 1000,
-		})
-	}
-	return err
+	c.LogClient.write(c, level, message)
+	return nil
 }
 func (c *Scope) getFieldsMap() map[string]interface{} {
 	return c.Fields
 }
-func (c *Scope) Info(message string) {
-	c.logClient.Logger.WithFields(map[string]interface{}{
-		"scope": c.Name,
-	}).WithFields(c.getFieldsMap()).Info(message)
-	err := c.write(LEVEL_INFO, message)
-	if err != nil {
-		c.logClient.Logger.Error(err)
-	}
+func (c *Scope) Info(message ...interface{}) {
+	c.LogClient.write(c, LEVEL_INFO, message...)
 }
-func (c *Scope) Debug(message string) {
-	c.logClient.Logger.WithFields(map[string]interface{}{
-		"scope": c.Name,
-	}).WithFields(c.getFieldsMap()).Debug(message)
-	err := c.write(LEVEL_DEBUG, message)
-	if err != nil {
-		c.logClient.Logger.Error(err)
-	}
+func (c *Scope) Debug(message ...interface{}) {
+	c.LogClient.write(c, LEVEL_DEBUG, message...)
 }
-func (c *Scope) Warn(message string) {
-	c.logClient.Logger.WithFields(map[string]interface{}{
-		"scope": c.Name,
-	}).WithFields(c.getFieldsMap()).Warn(message)
-	err := c.write(LEVEL_WARN, message)
-	if err != nil {
-		c.logClient.Logger.Error(err)
-	}
+func (c *Scope) Warn(message ...interface{}) {
+	c.LogClient.write(c, LEVEL_WARN, message...)
 }
-func (c *Scope) Error(message string) {
-	c.logClient.Logger.WithFields(map[string]interface{}{
-		"scope": c.Name,
-	}).WithFields(c.getFieldsMap()).Error(message)
-	err := c.write(LEVEL_ERROR, message)
-	if err != nil {
-		c.logClient.Logger.Error(err)
-	}
+func (c *Scope) Error(message ...interface{}) {
+	c.LogClient.write(c, LEVEL_ERROR, message...)
 }
-func (c *Scope) Fatal(message string) {
-	c.logClient.Logger.WithFields(map[string]interface{}{
-		"scope": c.Name,
-	}).WithFields(c.getFieldsMap()).Fatal(message)
-	err := c.write(LEVEL_FATAL, message)
-	if err != nil {
-		c.logClient.Logger.Error(err)
+func (c *Scope) Fatal(message ...interface{}) {
+	c.LogClient.write(c, LEVEL_FATAL, message...)
+}
+
+func combineStrings(message ...interface{}) string {
+	result := ""
+	for _, v := range message {
+		result += fmt.Sprintf("%v", v)
 	}
+	return result
 }
